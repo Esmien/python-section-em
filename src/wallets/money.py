@@ -33,29 +33,37 @@ class Wallet:
         for m in moneys:
             self._data[m.currency] = m
 
+
     @property
     def currencies(self):
+        """ Возвращает список валют в кошельке """
+
         return set(self._data.keys())
+
 
     def __getitem__(self, currency: Currency) -> Money:
         """ Возвращает данные из кошелька по выбранной валюте """
 
         return self._data.get(currency, Money(value=0, currency=currency))
 
+
     def __delitem__(self, currency: Currency):
         """ Удаляет данные из кошелька по выбранной валюте """
 
         self._data.pop(currency, None)
+
 
     def __len__(self) -> int:
         """ Возвращает количество валют в кошельке """
 
         return len(self._data)
 
+
     def __contains__(self, currency: Currency) -> bool:
         """ Проверяет наличие валюты в кошельке """
 
         return currency in self._data
+
 
     def add(self, money: Money) -> "Wallet":
         """ Добавляет деньги в кошелек """
@@ -63,6 +71,7 @@ class Wallet:
         current = self._data.get(money.currency, Money(value=0, currency=money.currency))
         self._data[money.currency] = current + money
         return self  # возврат self нужен для цепочки .add().add()
+
 
     def sub(self, money: Money) -> "Wallet":
         """ Списывает деньги из кошелька """
