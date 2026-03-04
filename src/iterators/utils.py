@@ -34,13 +34,18 @@ class RetrieveRemoteData:
 
 # class Fibo:
 #     def __init__(self, n: int) -> None:
+#         if n < 0:
+#             raise ValueError("Требуется положительное число")
+#
 #         self.n = n
 #
 #     def __iter__(self):
 #         a, b = 0, 1
+
 #         for _ in range(self.n):
 #             yield a
 #             a, b = b, a + b
+
 
 class Fibo:
     def __init__(self, n: int) -> None:
