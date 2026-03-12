@@ -45,6 +45,7 @@ class SpimexReport:
 
 # Интерфейс репозитория (контракт взаимодействия)
 class IReportRepository(ABC):
+    """ Не важно, как реализован репозиторий, главное, чтобы вернул список отчетов в формате DTO """
     @abstractmethod
     def get_reports(self, source_data: str, period: ReportPeriod) -> list[SpimexReport]:
         pass
