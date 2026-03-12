@@ -1,43 +1,81 @@
-import datetime
-from datetime import date
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+import datetime
 from bs4 import BeautifulSoup
 
+
+# Константы инфраструктуры
 DEFAULT_BASE_URL = "https://spimex.com"
 TARGET_CSS_CLASS = "accordeon-inner__item-title link xls"
 TARGET_URL_MARKER = "/upload/reports/oil_xls/oil_xls_"
 TARGET_EXTENSION = ".xls"
 DATE_FORMAT = "%Y%m%d"
+################################################################################################
 
 
-@dataclass
-class SpimexReportLink:
-    url: str
-    date: date
+# Бизнес-логика
+@dataclass(frozen=True)
+class ReportPeriod:
+    """ Период, за который ищем отчеты """
+
+    start_date: datetime.date
+    end_date: datetime.date
 
 
-class HtmlExtractor:
-    """ Только извлекает сырые ссылки из HTML """
-
-    @staticmethod
-    def extract(html: str) -> list[str]:
+    def contains(self, target_date: datetime.date) -> bool:
         """
-            Извлекает ссылки из HTML и возвращает их в виде списка.
+            Бизнес-правило: входит ли дата в период?
 
             Args:
-                html: HTML со ссылками
+                target_date: дата, которую проверяем на вхождение в период
 
             Returns:
-                Список ссылок
-        """
+                True, если дата входит в период
+            """
 
-        hrefs = []
-        # Превращаем HTML в объект BeautifulSoup
-        soup = BeautifulSoup(html, "html.parser")
-        # Собираем все ссылки из указанного класса
+        return self.start_date <= target_date <= self.end_date
+
+
+# Отчет
+@dataclass
+class SpimexReport:
+    url: str
+    report_date: datetime.date
+
+
+# Интерфейс репозитория (контракт взаимодействия)
+class IReportRepository(ABC):
+    @abstractmethod
+    def get_reports(self, source_data: str, period: ReportPeriod) -> list[SpimexReport]:
+        pass
+##################################################################################################
+
+
+# Инфраструктура
+
+# Реализация интерфейса
+class HtmlReportRepository(IReportRepository):
+    """ Реализация репозитория через парсинг HTML с помощью BeautifulSoup """
+
+    def get_reports(self, source_data: str, period: ReportPeriod) -> list[SpimexReport]:
+        """
+            Получение списка отчетов из HTML
+
+            Args:
+                source_data: HTML-строка с отчетами
+                period: период, за который ищем отчеты в формате DTO
+
+            Returns:
+                список отчетов
+            """
+
+        results = []
+
+        # Преобразуем ссылки из HTML в список объектов BS из CSS-класса
+        soup = BeautifulSoup(source_data, "html.parser")
         links = soup.find_all("a", class_=TARGET_CSS_CLASS)
 
-        # Проходимся по всем ссылкам, отбирая нужные
+        # Парсим ссылки по заданным правилам и преобразуем к единому виду
         for link in links:
             href = link.get("href")
             if not href:
@@ -47,87 +85,42 @@ class HtmlExtractor:
             if TARGET_URL_MARKER not in clean_href or not clean_href.endswith(TARGET_EXTENSION):
                 continue
 
-            hrefs.append(clean_href)
+            # Парсим дату из однородных ссылок
+            date_str = clean_href.split(TARGET_URL_MARKER)[-1][:8]
+            report_date = datetime.datetime.strptime(date_str, DATE_FORMAT).date()
 
-        return hrefs
+            # Применяем бизнес-логику и собираем в список валидные DTO
+            if period.contains(report_date):
+                absolute_url = clean_href if clean_href.startswith("http") else f"{DEFAULT_BASE_URL}{clean_href}"
+                results.append(SpimexReport(url=absolute_url, report_date=report_date))
+
+        return results
+##################################################################################################
 
 
-class LinkParser:
-    """ Превращает сырую строку в DTO """
+# Сценарий использования
+class GetFilteredReportsUseCase:
+    """ Сценарий использования: Получить отчеты за нужный период из переданного источника """
 
-    @staticmethod
-    def parse(href: str) -> SpimexReportLink:
+    def __init__(self, repository: IReportRepository):
+        """ Инициализация сценария использования (абстрактный репозиторий) """
+        self.repository = repository
+
+    def execute(self, html_content: str, start: datetime.date, end: datetime.date) -> list[SpimexReport]:
         """
-            Парсит ссылку и возвращает DTO
+            Выполнение сценария использования
 
             Args:
-                href: Сырая ссылка
+                html_content: HTML-строка с отчетами
+                start: начальная дата
+                end: конечная дата
 
             Returns:
-                DTO с URL и датой
+                список отчетов за период
         """
 
-        # Вытаскиваем дату из URL в нужном формате
-        date_str = href.split(TARGET_URL_MARKER)[-1][:8]
-        report_date = datetime.datetime.strptime(date_str, DATE_FORMAT).date()
+        # Формируем доменный объект периода
+        period = ReportPeriod(start_date=start, end_date=end)
 
-        # Формируем полный URL
-        absolute_url = href if href.startswith("http") else f"{DEFAULT_BASE_URL}{href}"
-
-        # Создаем DTO
-        return SpimexReportLink(url=absolute_url, date=report_date)
-
-
-class DateFilter:
-    """ Применяет бизнес-правила к списку DTO """
-
-    def __init__(self, start_date: date, end_date: date):
-        self.start_date = start_date
-        self.end_date = end_date
-
-    def filter_links(self, links: list[SpimexReportLink]) -> list[SpimexReportLink]:
-        """
-            Фильтрует список DTO по дате и возвращает отфильтрованный список
-
-            Args:
-                links: Список DTO
-
-            Returns:
-                Отфильтрованный список DTO
-        """
-
-        # Фильтруем по дате
-        return [link for link in links if self.start_date <= link.date <= self.end_date]
-
-
-
-class SpimexReportService:
-    """ Оркестратор: склеивает экстрактор, парсер и фильтр в единый процесс """
-
-    def __init__(self, start_date: date, end_date: date):
-        # Инициализируем компоненты
-        self.extractor = HtmlExtractor()
-        self.parser = LinkParser()
-        self.date_filter = DateFilter(start_date, end_date)
-
-    def run(self, html: str) -> list[SpimexReportLink]:
-        """
-            Точка входа в программу
-
-            Args:
-                html: HTML со ссылками
-
-            Returns:
-                Валидный список DTO
-        """
-
-        # Извлекаем сырые ссылки из HTML
-        raw_hrefs = self.extractor.extract(html)
-
-        # Преобразуем сырые ссылки в DTO
-        parsed_links = [self.parser.parse(href) for href in raw_hrefs]
-
-        # Фильтруем по бизнес-правилам и отдаем наружу
-        return self.date_filter.filter_links(parsed_links)
-
-
+        # Делегируем работу интерфейсу репозитория
+        return self.repository.get_reports(html_content, period)

@@ -19,8 +19,13 @@ class Page:
 
 
 def request(query: Query) -> Page:
+    """ Имитирует запрос к удаленному API """
+
+    # Создаем список из 10 элементов
     data = [i for i in range(0, 10)]
+    # Разбиваем его на страницы, получаем список кортежей
     chunks = list(batched(data, query.per_page))
+    # Если запрашиваемой страницы нет, возвращаем пустую страницу
     return Page(
         per_page=query.per_page,
         results=chunks[query.page - 1],
@@ -29,7 +34,24 @@ def request(query: Query) -> Page:
 
 
 class RetrieveRemoteData:
-    pass
+    def __init__(self, per_page: int = 3):
+        # Количество элементов на странице
+        self.per_page = per_page
+
+    def __iter__(self):
+        # Начинаем с первой страницы
+        current_page = 1
+
+        # Крутим цикл, пока страницы не закончатся
+        while current_page is not None:
+            # Делаем запрос к API
+            response = request(Query(per_page=self.per_page, page=current_page))
+
+            # Поштучно отдаем элементы текущей страницы наружу
+            yield from response.results
+
+            # Забираем у API номер следующей страницы, если она есть
+            current_page = response.next
 
 
 # class Fibo:
