@@ -17,7 +17,7 @@ TARGET_EXTENSION = ".xls"
 DATE_FORMAT = "%Y%m%d"
 
 @dataclass
-class SpimexReport:
+class SpimexReport(frozen=True):
     absolute_url: str
     report_date: date
 

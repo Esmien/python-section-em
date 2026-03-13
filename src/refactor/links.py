@@ -40,7 +40,7 @@ class ReportPeriod:
 
 # Отчет
 @dataclass
-class SpimexReport:
+class SpimexReport(frozen=True):
     url: str
     report_date: datetime.date
 
