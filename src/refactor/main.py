@@ -45,7 +45,7 @@ def parse_page_links(
             Список валидных DTO ссылок на бюллетени
     """
 
-    results: list[SpimexReport] = []
+    results: set[SpimexReport] = set()
 
     # Собираем ссылки из HTML в виде списка объектов BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
@@ -74,7 +74,7 @@ def parse_page_links(
             if start_date <= report_date <= end_date:
                 # Безопасная склейка путей вместо жесткого f"https://spimex.com{href}"
                 absolute_url = urljoin(base_url, clean_href)
-                results.append(SpimexReport(absolute_url=absolute_url, report_date=report_date))
+                results.add(SpimexReport(absolute_url=absolute_url, report_date=report_date))
             else:
                 logger.debug(f"Ссылка {clean_href} вне диапазона дат ({report_date})")
 
@@ -83,4 +83,4 @@ def parse_page_links(
             logger.warning(f"Не удалось извлечь дату из ссылки {clean_href}. Ошибка: {e}")
 
     # Возвращаем список уникальных валидных DTO
-    return list(set(results))
+    return list(results)
