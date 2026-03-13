@@ -40,7 +40,7 @@ class ReportPeriod:
 
 # Отчет
 @dataclass
-class SpimexReport(frozen=True):
+class SpimexReport(frozen=True, slots=True):
     url: str
     report_date: datetime.date
 
@@ -97,7 +97,7 @@ class HtmlReportRepository(IReportRepository):
                 absolute_url = clean_href if clean_href.startswith("http") else f"{DEFAULT_BASE_URL}{clean_href}"
                 results.append(SpimexReport(url=absolute_url, report_date=report_date))
 
-        return results
+        return list(set(results))
 ##################################################################################################
 
 

@@ -16,8 +16,9 @@ TARGET_URL_MARKER = "/upload/reports/oil_xls/oil_xls_"
 TARGET_EXTENSION = ".xls"
 DATE_FORMAT = "%Y%m%d"
 
-@dataclass
-class SpimexReport(frozen=True):
+# Экономим память и делаем DTO хэшируемыми
+@dataclass(slots=True, frozen=True)
+class SpimexReport:
     absolute_url: str
     report_date: date
 
@@ -81,5 +82,5 @@ def parse_page_links(
             # Ловим только ожидаемые ошибки, на остальных просто падаем
             logger.warning(f"Не удалось извлечь дату из ссылки {clean_href}. Ошибка: {e}")
 
-    # Возвращаем список валидных DTO
-    return results
+    # Возвращаем список уникальных валидных DTO
+    return list(set(results))
